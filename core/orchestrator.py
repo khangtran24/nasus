@@ -8,8 +8,7 @@ import logging
 import uuid
 from typing import List, Optional
 
-from anthropic import Anthropic
-
+from core.model_router import ModelRouter
 from agents.coder import CoderAgent
 from agents.devops_agent import DevOpsAgent
 from agents.docs_agent import DocsAgent
@@ -23,6 +22,13 @@ from core.mcp_manager import MCPManager
 from core.types import AgentTask, IntentClassification
 from prompts.orchestrator_prompts import INTENT_CLASSIFICATION_PROMPT
 
+# Import Claude Agent SDK components
+try:
+    from claude_agent_sdk import ClaudeSDKClient, AssistantMessage, TextBlock, ResultMessage
+    CLAUDE_SDK_AVAILABLE = True
+except ImportError:
+    CLAUDE_SDK_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,10 +39,18 @@ class Orchestrator:
         """Initialize the orchestrator.
 
         Args:
-            api_key: Optional Anthropic API key
+            api_key: Optional API key (provider-specific)
         """
-        self.api_key = api_key or settings.anthropic_api_key
-        self.client = Anthropic(api_key=self.api_key)
+        # Initialize ModelRouter with provider system
+        provider = settings.model_provider
+        api_key = api_key or self._get_api_key_for_provider(provider)
+
+        self.client = ModelRouter(
+            provider=provider,
+            api_key=api_key,
+            default_model=settings.default_model,
+            **self._get_provider_kwargs(provider)
+        )
 
         # Initialize managers
         self.context_manager = ContextManager(self.client)
@@ -46,49 +60,74 @@ class Orchestrator:
         # Register all agents
         self._register_agents()
 
+    def _get_api_key_for_provider(self, provider: str) -> str:
+        """Get API key for the specified provider.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            API key
+
+        Raises:
+            ValueError: If provider is unknown
+        """
+        if provider == "claude_agent_sdk":
+            return settings.get_claude_api_key()
+        elif provider == "openrouter":
+            return settings.openrouter_api_key
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+    def _get_provider_kwargs(self, provider: str) -> dict:
+        """Get provider-specific kwargs.
+
+        Args:
+            provider: Provider name
+
+        Returns:
+            Dict of provider-specific configuration
+        """
+        if provider == "claude_agent_sdk":
+            return {
+                "use_pro_features": settings.claude_agent_sdk_use_pro_features,
+                "pro_tier": settings.claude_agent_sdk_pro_tier
+            }
+        elif provider == "openrouter":
+            return {"base_url": settings.openrouter_base_url}
+        return {}
+
     def _register_agents(self) -> None:
         """Register all specialized agents."""
-        # Create agents
-        coder = CoderAgent(self.api_key)
-        test_writer = TestWriterAgent(self.api_key)
-        req_analyzer = RequirementAnalyzerAgent(self.api_key)
-        qa_checker = QACheckerAgent(self.api_key)
-        docs = DocsAgent(self.api_key)
-        devops = DevOpsAgent(self.api_key)
+        # Create agents (they will use settings to determine API key)
+        coder = CoderAgent()
+        test_writer = TestWriterAgent()
+        req_analyzer = RequirementAnalyzerAgent()
+        qa_checker = QACheckerAgent()
+        docs = DocsAgent()
+        devops = DevOpsAgent()
 
         # Register with capabilities
-        self.agent_registry.register_agent(
-            coder,
-            ["code_generation", "code_modification", "debugging", "refactoring"]
-        )
-        self.agent_registry.register_agent(
-            test_writer,
-            ["test_generation", "test_improvement", "test_coverage"]
-        )
-        self.agent_registry.register_agent(
-            req_analyzer,
-            ["requirement_analysis", "jira", "confluence", "specification"]
-        )
-        self.agent_registry.register_agent(
-            qa_checker,
-            ["code_review", "quality_check", "linting", "security"]
-        )
-        self.agent_registry.register_agent(
-            docs,
-            ["documentation", "slack_summary", "user_guides", "api_docs"]
-        )
-        self.agent_registry.register_agent(
-            devops,
-            ["ci_cd", "deployment", "release_management", "github_actions", "docker", "infrastructure"]
-        )
+        agents_config = [
+            (coder, ["code_generation", "code_modification", "debugging", "refactoring"]),
+            (test_writer, ["test_generation", "test_improvement", "test_coverage"]),
+            (req_analyzer, ["requirement_analysis", "jira", "confluence", "specification"]),
+            (qa_checker, ["code_review", "quality_check", "linting", "security"]),
+            (docs, ["documentation", "slack_summary", "user_guides", "api_docs"]),
+            (devops, ["ci_cd", "deployment", "release_management", "github_actions", "docker", "infrastructure"])
+        ]
 
-        logger.info("Registered 6 specialized agents")
+        for agent, capabilities in agents_config:
+            self.agent_registry.register_agent(agent, capabilities)
+            logger.debug(f"Registered agent: {agent.name} with {len(capabilities)} capabilities")
+
+        logger.info(f"Initialized {len(agents_config)} specialized agents")
 
     async def initialize(self) -> None:
         """Initialize the orchestrator and all managers."""
-        logger.info("Initializing orchestrator...")
+        logger.debug("Initializing orchestrator...")
         await self.mcp_manager.initialize()
-        logger.info("Orchestrator ready")
+        logger.debug("Orchestrator ready")
 
     async def process_request(
         self,
@@ -172,12 +211,29 @@ class Orchestrator:
             logger.error(f"Error processing request: {e}", exc_info=True)
             return f"An error occurred while processing your request: {str(e)}"
 
+    async def _parse_sdk_response(self, client: "ClaudeSDKClient") -> str:
+        """Parse response from Claude Agent SDK.
+
+        Args:
+            client: Claude SDK client instance
+
+        Returns:
+            Extracted text from response
+        """
+        result_text = ""
+        async for message in client.receive_response():
+            if isinstance(message, AssistantMessage):
+                for block in message.content:
+                    if isinstance(block, TextBlock):
+                        result_text += block.text
+        return result_text
+
     async def _classify_intent(
         self,
         user_query: str,
         context
     ) -> IntentClassification:
-        """Classify user intent using Claude.
+        """Classify user intent using Claude Agent SDK.
 
         Args:
             user_query: User's query
@@ -191,20 +247,42 @@ class Orchestrator:
         if context.conversation_summary:
             context_info = f"\n\nPrevious context: {context.conversation_summary}"
 
-        # Call Claude for intent classification
+        # Call Claude for intent classification using SDK
         try:
-            response = self.client.messages.create(
-                model=settings.default_model,
-                max_tokens=500,
-                system=INTENT_CLASSIFICATION_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": f"Classify this request:\n\n{user_query}{context_info}"
-                }]
-            )
+            # Use Claude Agent SDK if available
+            if CLAUDE_SDK_AVAILABLE and settings.model_provider == "claude_agent_sdk":
+                async with ClaudeSDKClient() as client:
+                    # Send classification request
+                    await client.query(
+                        f"Classify this request:\n\n{user_query}{context_info}",
+                        system_prompt=INTENT_CLASSIFICATION_PROMPT,
+                        max_tokens=500
+                    )
 
-            # Parse response
-            result_text = response.content[0].text
+                    # Parse response using separate method
+                    result_text = await self._parse_sdk_response(client)
+            else:
+                # Fallback to ModelRouter for other providers
+                response = await self.client.create_message(
+                    model=settings.default_model,
+                    max_tokens=500,
+                    system=INTENT_CLASSIFICATION_PROMPT,
+                    messages=[{
+                        "role": "user",
+                        "content": f"Classify this request:\n\n{user_query}{context_info}"
+                    }]
+                )
+
+                # Parse response from ModelRouter
+                result_text = ""
+                content_blocks = response.content
+                for block in content_blocks:
+                    if hasattr(block, 'text'):
+                        result_text = block.text
+                        break
+                    elif hasattr(block, 'type') and block.type == 'text':
+                        result_text = block.text if hasattr(block, 'text') else str(block)
+                        break
 
             # Try to extract JSON from response
             try:
@@ -225,7 +303,8 @@ class Orchestrator:
                     reasoning=result.get("reasoning", "")
                 )
 
-            except (json.JSONDecodeError, ValueError):
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(f"JSON parsing failed: {e}, using fallback")
                 # Fallback to simple heuristics
                 return self._fallback_classification(user_query)
 

@@ -34,7 +34,7 @@ class MCPManager:
         if self.initialized:
             return
 
-        logger.info("Initializing MCP servers...")
+        logger.debug("Initializing MCP servers...")
 
         # Start Atlassian MCP if configured
         if settings.has_jira_config() or settings.has_confluence_config():
@@ -52,7 +52,10 @@ class MCPManager:
         await self._discover_tools()
 
         self.initialized = True
-        logger.info(f"MCP manager initialized with {len(self.tools)} tool sets")
+
+        # Only log if we actually have MCP tools configured
+        if self.tools:
+            logger.info(f"MCP tools ready: {sum(len(tools) for tools in self.tools.values())} tools from {len(self.tools)} servers")
 
     async def _start_atlassian_server(self) -> None:
         """Start Atlassian MCP server and establish client session."""
@@ -89,7 +92,7 @@ class MCPManager:
             await session.initialize()
 
             self.sessions["atlassian"] = session
-            logger.info("Atlassian MCP server connected")
+            logger.debug("Atlassian MCP server connected")
 
         except Exception as e:
             logger.error(f"Failed to start Atlassian MCP server: {e}")
@@ -125,7 +128,7 @@ class MCPManager:
             await session.initialize()
 
             self.sessions["slack"] = session
-            logger.info("Slack MCP server connected")
+            logger.debug("Slack MCP server connected")
 
         except Exception as e:
             logger.error(f"Failed to start Slack MCP server: {e}")
@@ -164,7 +167,7 @@ class MCPManager:
             await session.initialize()
 
             self.sessions["github_ci"] = session
-            logger.info("GitHub CI MCP server connected")
+            logger.debug("GitHub CI MCP server connected")
 
         except Exception as e:
             logger.error(f"Failed to start GitHub CI MCP server: {e}")
@@ -189,7 +192,7 @@ class MCPManager:
                     ))
 
                 self.tools[server_name] = server_tools
-                logger.info(f"Discovered {len(server_tools)} tools from {server_name}")
+                logger.debug(f"Discovered {len(server_tools)} tools from {server_name}")
 
             except Exception as e:
                 logger.error(f"Failed to discover tools from {server_name}: {e}")

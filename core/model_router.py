@@ -1,7 +1,7 @@
 """Model router for handling multiple LLM providers.
 
 This module provides a unified interface for working with different LLM providers
-including Anthropic, OpenRouter, and Claude Agent SDK (Pro subscription support).
+including Claude Agent SDK (Pro subscription support) and OpenRouter.
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 
 from core.providers import (
-    AnthropicProvider,
     BaseProvider,
     ClaudeAgentSDKProvider,
     ModelRouterResponse,
@@ -19,27 +18,19 @@ from utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-ProviderType = Literal["anthropic", "openrouter", "claude_agent_sdk"]
+ProviderType = Literal["claude_agent_sdk", "openrouter"]
 
 
 class ModelRouter:
     """Router for handling requests to different LLM providers.
 
     Supports:
-    - anthropic: Direct Anthropic API access
+    - claude_agent_sdk: Claude access with Pro subscription support (primary)
     - openrouter: Multi-model access via OpenRouter
-    - claude_agent_sdk: Claude Agent SDK with Pro subscription support
 
     Example:
         ```python
-        # Using Anthropic
-        router = ModelRouter(
-            provider="anthropic",
-            api_key="sk-ant-...",
-            default_model="claude-sonnet-4-5-20250929"
-        )
-
-        # Using Claude Agent SDK (Pro subscription)
+        # Using Claude Agent SDK (recommended)
         router = ModelRouter(
             provider="claude_agent_sdk",
             api_key="sk-ant-...",
@@ -64,7 +55,7 @@ class ModelRouter:
 
     def __init__(
         self,
-        provider: ProviderType = "anthropic",
+        provider: ProviderType = "claude_agent_sdk",
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         default_model: Optional[str] = None,
@@ -94,7 +85,7 @@ class ModelRouter:
             **kwargs
         )
 
-        logger.info(
+        logger.debug(
             f"ModelRouter initialized with provider: {provider} "
             f"({self.provider.get_provider_name()})"
         )
@@ -122,8 +113,8 @@ class ModelRouter:
         Raises:
             ValueError: If provider type is unsupported
         """
-        if provider == "anthropic":
-            return AnthropicProvider(
+        if provider == "claude_agent_sdk":
+            return ClaudeAgentSDKProvider(
                 api_key=api_key,
                 base_url=base_url,
                 default_model=default_model,
@@ -138,18 +129,10 @@ class ModelRouter:
                 **kwargs
             )
 
-        elif provider == "claude_agent_sdk":
-            return ClaudeAgentSDKProvider(
-                api_key=api_key,
-                base_url=base_url,
-                default_model=default_model,
-                **kwargs
-            )
-
         else:
             raise ValueError(
                 f"Unsupported provider: {provider}. "
-                f"Supported providers: anthropic, openrouter, claude_agent_sdk"
+                f"Supported providers: claude_agent_sdk, openrouter"
             )
 
     async def create_message(

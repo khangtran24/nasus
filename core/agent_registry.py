@@ -65,7 +65,7 @@ class AgentRegistry:
         """
         self.agents[agent.name] = agent
         self.capabilities[agent.name] = set(capabilities)
-        logger.info(f"Registered agent: {agent.name} with capabilities: {capabilities}")
+        logger.debug(f"Registered agent: {agent.name} with capabilities: {capabilities}")
 
     def get_agent(self, name: str) -> BaseAgent | None:
         """Get agent by name.

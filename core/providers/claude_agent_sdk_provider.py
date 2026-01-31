@@ -22,16 +22,16 @@ except ImportError:
 
 
 class ClaudeAgentSDKProvider(BaseProvider):
-    """Provider for Claude Agent SDK (supports Claude Pro subscription).
+    """Provider for Claude Agent SDK (supports Claude subscription).
 
     This provider uses the Anthropic SDK with special configuration to leverage
-    Claude Pro subscription benefits when available.
+    Claude subscription benefits (Pro/Team) when available.
 
     Features:
-    - Automatic use of Claude Pro subscription if available
-    - Higher rate limits and priority access
+    - Automatic use of Claude subscription features if available
+    - Higher rate limits and priority access for subscribers
     - Access to latest Claude models
-    - Supports all standard Anthropic API features
+    - Supports all standard Claude API features
     """
 
     def __init__(
@@ -44,12 +44,12 @@ class ClaudeAgentSDKProvider(BaseProvider):
         """Initialize Claude Agent SDK provider.
 
         Args:
-            api_key: Anthropic API key (can use Pro subscription key)
+            api_key: Claude API key (supports Claude subscription)
             base_url: Optional base URL
             default_model: Default model to use
             **kwargs: Additional configuration
-                - use_pro_features: Enable Pro subscription features (default: True)
-                - pro_tier: Specify Pro tier if applicable
+                - use_pro_features: Enable Claude subscription features (default: True)
+                - pro_tier: Specify subscription tier if applicable
         """
         super().__init__(api_key, base_url, default_model, **kwargs)
 
@@ -67,12 +67,17 @@ class ClaudeAgentSDKProvider(BaseProvider):
         client_kwargs = {}
 
         # Use API key from environment or parameter
+        # Check CLAUDE_API_KEY first, then fall back to ANTHROPIC_API_KEY for backwards compatibility
         if self.api_key:
             client_kwargs["api_key"] = self.api_key
+        elif "CLAUDE_API_KEY" in os.environ:
+            client_kwargs["api_key"] = os.environ["CLAUDE_API_KEY"]
         elif "ANTHROPIC_API_KEY" in os.environ:
             client_kwargs["api_key"] = os.environ["ANTHROPIC_API_KEY"]
         else:
-            raise ValueError("API key must be provided or set in ANTHROPIC_API_KEY")
+            raise ValueError(
+                "API key must be provided or set in CLAUDE_API_KEY or ANTHROPIC_API_KEY"
+            )
 
         if self.base_url:
             client_kwargs["base_url"] = self.base_url
@@ -93,7 +98,7 @@ class ClaudeAgentSDKProvider(BaseProvider):
 
         self.client = AsyncAnthropic(**client_kwargs)
 
-        logger.info(
+        logger.debug(
             f"Claude Agent SDK provider initialized "
             f"(Pro features: {self.use_pro_features})"
         )

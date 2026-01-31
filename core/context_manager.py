@@ -7,8 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from anthropic import Anthropic
-
+from core.model_router import ModelRouter
 from config import settings
 from core.types import AgentResponse, ContextSummary, ConversationTurn
 
@@ -16,13 +15,36 @@ from core.types import AgentResponse, ContextSummary, ConversationTurn
 class ContextManager:
     """Manages conversation context with intelligent summarization."""
 
-    def __init__(self, client: Optional[Anthropic] = None):
+    def __init__(self, client: Optional[ModelRouter] = None):
         """Initialize the context manager.
 
         Args:
-            client: Optional Anthropic client (creates new one if not provided)
+            client: Optional ModelRouter client (creates new one if not provided)
         """
-        self.client = client or Anthropic(api_key=settings.anthropic_api_key)
+        if client is None:
+            # Initialize ModelRouter with provider configuration
+            provider = settings.model_provider
+            if provider == "claude_agent_sdk":
+                api_key = settings.get_claude_api_key()
+                kwargs = {
+                    "use_pro_features": settings.claude_agent_sdk_use_pro_features,
+                    "pro_tier": settings.claude_agent_sdk_pro_tier
+                }
+            elif provider == "openrouter":
+                api_key = settings.openrouter_api_key
+                kwargs = {"base_url": settings.openrouter_base_url}
+            else:
+                raise ValueError(f"Unknown provider: {provider}")
+
+            self.client = ModelRouter(
+                provider=provider,
+                api_key=api_key,
+                default_model=settings.default_model,
+                **kwargs
+            )
+        else:
+            self.client = client
+
         self.sessions: Dict[str, ContextSummary] = {}
         self.max_tokens = settings.max_context_tokens
         self.summarization_threshold = int(
@@ -133,7 +155,7 @@ class ContextManager:
 
         # Call Claude for summarization
         try:
-            response = await self.client.messages.create(
+            response = await self.client.create_message(
                 model=settings.default_model,
                 max_tokens=1000,
                 messages=[{
@@ -157,8 +179,16 @@ Provide a comprehensive summary that incorporates both the previous summary and 
                 }]
             )
 
-            # Extract summary text
-            summary_text = response.content[0].text
+            # Extract summary text from ModelRouterResponse
+            content_blocks = response.content
+            summary_text = ""
+            for block in content_blocks:
+                if hasattr(block, 'text'):
+                    summary_text = block.text
+                    break
+                elif hasattr(block, 'type') and block.type == 'text':
+                    summary_text = block.text if hasattr(block, 'text') else str(block)
+                    break
 
             # Update context with new summary
             context.conversation_summary = summary_text

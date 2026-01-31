@@ -21,3 +21,8 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+__pycache__/
+sessions/
+
+# Claude
+.claude/memory/session_conversations

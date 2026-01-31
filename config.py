@@ -17,14 +17,14 @@ class Settings(BaseSettings):
 
     # Model Provider Configuration
     model_provider: str = Field(
-        default="anthropic",
-        description="LLM provider to use (anthropic, openrouter, or claude_agent_sdk)"
+        default="claude_agent_sdk",
+        description="LLM provider to use (claude_agent_sdk or openrouter)"
     )
 
-    # Anthropic API Configuration
-    anthropic_api_key: str = Field(
+    # Claude API Configuration
+    claude_api_key: str = Field(
         default="",
-        description="Anthropic API key for Claude access"
+        description="Claude API key (Anthropic API key for Claude access)"
     )
 
     # OpenRouter API Configuration
@@ -151,6 +151,12 @@ class Settings(BaseSettings):
         description="Directory for session storage"
     )
 
+    # Memory Storage
+    memory_storage_path: str = Field(
+        default=".claude/memory/session_conversations/",
+        description="Directory for conversation memory storage (used by hooks)"
+    )
+
     # Agent Configuration
     enable_parallel_execution: bool = Field(
         default=False,
@@ -182,6 +188,10 @@ class Settings(BaseSettings):
         session_dir = Path(self.session_storage_path)
         session_dir.mkdir(parents=True, exist_ok=True)
 
+        # Create memory storage directory
+        memory_dir = Path(self.memory_storage_path)
+        memory_dir.mkdir(parents=True, exist_ok=True)
+
     def has_jira_config(self) -> bool:
         """Check if Jira is configured."""
         return all([
@@ -212,6 +222,14 @@ class Settings(BaseSettings):
             self.github_owner,
             self.github_repo
         ])
+
+    def get_claude_api_key(self) -> str:
+        """Get the Claude API key.
+
+        Returns:
+            Claude API key (Anthropic API key)
+        """
+        return self.claude_api_key
 
 
 # Global settings instance

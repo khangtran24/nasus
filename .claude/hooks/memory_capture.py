@@ -10,9 +10,19 @@ import os
 from pathlib import Path
 from datetime import datetime
 
+def normalize_path(path):
+    """Normalize path to work on Windows."""
+    # Convert /c/Users/... to C:/Users/...
+    if path.startswith('/') and len(path) > 2 and path[2] == '/':
+        path = path[1].upper() + ':' + path[2:]
+    return path
+
 def extract_memories(transcript_path):
     """Extract important information from transcript."""
     try:
+        # Normalize path for Windows compatibility
+        transcript_path = normalize_path(transcript_path)
+
         if not os.path.exists(transcript_path):
             return []
 
@@ -22,26 +32,43 @@ def extract_memories(transcript_path):
                 try:
                     entry = json.loads(line.strip())
 
+                    # Skip non-message entries
+                    if entry.get('type') != 'user' and entry.get('type') != 'assistant':
+                        continue
+
+                    message = entry.get('message', {})
+                    role = message.get('role')
+                    timestamp = entry.get('timestamp', datetime.now().isoformat())
+
+                    # Extract text content from content array
+                    content_array = message.get('content', [])
+                    text_content = ''
+                    for content_item in content_array:
+                        if isinstance(content_item, dict) and content_item.get('type') == 'text':
+                            text_content += content_item.get('text', '') + ' '
+
+                    text_content = text_content.strip()
+                    if not text_content:
+                        continue
+
                     # Extract user preferences, decisions, and important facts
-                    if entry.get('role') == 'user':
-                        content = entry.get('content', '')
-                        if any(keyword in content.lower() for keyword in
-                               ['prefer', 'always', 'never', 'remember', 'note that']):
+                    if role == 'user':
+                        if any(keyword in text_content.lower() for keyword in
+                               ['prefer', 'always', 'never', 'remember', 'note that', 'important']):
                             memories.append({
                                 'type': 'preference',
-                                'content': content,
-                                'timestamp': entry.get('timestamp', datetime.now().isoformat())
+                                'content': text_content[:500],
+                                'timestamp': timestamp
                             })
 
                     # Extract decisions and outcomes from assistant
-                    elif entry.get('role') == 'assistant':
-                        content = entry.get('content', '')
-                        if any(keyword in content.lower() for keyword in
-                               ['decided', 'implemented', 'created', 'configured']):
+                    elif role == 'assistant':
+                        if any(keyword in text_content.lower() for keyword in
+                               ['decided', 'implemented', 'created', 'configured', 'added', 'updated', 'fixed']):
                             memories.append({
                                 'type': 'decision',
-                                'content': content[:500],  # Limit length
-                                'timestamp': entry.get('timestamp', datetime.now().isoformat())
+                                'content': text_content[:500],  # Limit length
+                                'timestamp': timestamp
                             })
 
                 except json.JSONDecodeError:
@@ -56,7 +83,9 @@ def extract_memories(transcript_path):
 def store_memories(memories, project_root):
     """Store memories in the project's memory file."""
     try:
-        memory_dir = Path(project_root) / '.claude' / 'memory'
+        # Get memory path from environment or use default
+        memory_path = os.getenv('MEMORY_STORAGE_PATH', '.claude/memory/session_conversations/')
+        memory_dir = Path(project_root) / memory_path
         memory_dir.mkdir(parents=True, exist_ok=True)
 
         memory_file = memory_dir / 'conversation_memories.jsonl'
@@ -75,7 +104,16 @@ def main():
     """Main hook entry point."""
     try:
         # Read input from stdin
-        input_data = json.loads(sys.stdin.read())
+        raw_input = sys.stdin.read()
+
+        # Debug: Log what we received
+        memory_path = os.getenv('MEMORY_STORAGE_PATH', '.claude/memory/session_conversations/')
+        debug_file = Path(os.getcwd()) / memory_path / 'debug.log'
+        debug_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(debug_file, 'a', encoding='utf-8') as f:
+            f.write(f"\n[{datetime.now().isoformat()}] Received input:\n{raw_input}\n")
+
+        input_data = json.loads(raw_input)
 
         transcript_path = input_data.get('transcript_path')
         if not transcript_path:

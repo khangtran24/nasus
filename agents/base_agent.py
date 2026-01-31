@@ -35,11 +35,11 @@ class BaseAgent(ABC):
         provider = settings.model_provider
         if not api_key:
             if provider == "anthropic":
-                api_key = settings.anthropic_api_key
+                api_key = settings.get_claude_api_key()
             elif provider == "openrouter":
                 api_key = settings.openrouter_api_key
             elif provider == "claude_agent_sdk":
-                api_key = settings.anthropic_api_key  # Uses Anthropic key
+                api_key = settings.get_claude_api_key()  # Uses Claude/Anthropic key
 
         # Prepare provider-specific kwargs
         provider_kwargs = {}

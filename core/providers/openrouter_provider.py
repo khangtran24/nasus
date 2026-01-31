@@ -42,7 +42,7 @@ class OpenRouterProvider(BaseProvider):
         self.app_name = kwargs.get("app_name", "Nasus Agent System")
         self.site_url = kwargs.get("site_url", "https://github.com/yourusername/nasus")
 
-        logger.info("OpenRouter provider initialized")
+        logger.debug("OpenRouter provider initialized")
 
     def get_provider_name(self) -> str:
         """Get provider name.

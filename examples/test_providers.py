@@ -15,15 +15,20 @@ setup_logging()
 logger = get_logger(__name__)
 
 
+def get_claude_api_key():
+    """Get Claude API key from environment (CLAUDE_API_KEY or ANTHROPIC_API_KEY)."""
+    return os.getenv("CLAUDE_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+
+
 async def test_anthropic_provider():
     """Test Anthropic provider."""
     logger.info("=" * 60)
     logger.info("Testing Anthropic Provider")
     logger.info("=" * 60)
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = get_claude_api_key()
     if not api_key:
-        logger.warning("ANTHROPIC_API_KEY not set, skipping test")
+        logger.warning("CLAUDE_API_KEY not set, skipping test")
         return
 
     router = ModelRouter(
@@ -98,9 +103,9 @@ async def test_claude_agent_sdk_provider():
     logger.info("Testing Claude Agent SDK Provider (Pro Support)")
     logger.info("=" * 60)
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = get_claude_api_key()
     if not api_key:
-        logger.warning("ANTHROPIC_API_KEY not set, skipping test")
+        logger.warning("CLAUDE_API_KEY not set, skipping test")
         return
 
     router = ModelRouter(
@@ -143,12 +148,13 @@ async def test_provider_comparison():
     providers = []
 
     # Test Anthropic
-    if os.getenv("ANTHROPIC_API_KEY"):
+    claude_key = get_claude_api_key()
+    if claude_key:
         providers.append({
             "name": "Anthropic",
             "router": ModelRouter(
                 provider="anthropic",
-                api_key=os.getenv("ANTHROPIC_API_KEY"),
+                api_key=claude_key,
                 default_model="claude-sonnet-4-5-20250929"
             )
         })
@@ -165,12 +171,12 @@ async def test_provider_comparison():
         })
 
     # Test Claude Agent SDK
-    if os.getenv("ANTHROPIC_API_KEY"):
+    if claude_key:
         providers.append({
             "name": "Claude Agent SDK",
             "router": ModelRouter(
                 provider="claude_agent_sdk",
-                api_key=os.getenv("ANTHROPIC_API_KEY"),
+                api_key=claude_key,
                 default_model="claude-sonnet-4-5-20250929",
                 use_pro_features=True
             )

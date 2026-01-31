@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(uv run python:*)",
+      "Bash(uv pip install:*)",
+      "Bash(python main.py:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

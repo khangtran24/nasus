@@ -145,16 +145,28 @@ Examples:
 
     # Initialize orchestrator
     try:
-        console.print(settings.model_dump(mode="json"))
+        # Show settings only in verbose mode
+        if args.verbose:
+            console.print("[dim]Configuration:[/dim]")
+            console.print(settings.model_dump(mode="json"))
+            console.print()
+
         console.print("[cyan]Initializing multi-agent system...[/cyan]")
         orchestrator = Orchestrator()
         await orchestrator.initialize()
-        console.print("[green]✓ System ready[/green]\n")
+
+        # Show concise startup info
+        provider_name = orchestrator.client.get_provider_name()
+        agent_count = len(orchestrator.agent_registry.list_agents())
+        console.print(
+            f"[green]✓ System ready[/green] "
+            f"[dim]({provider_name}, {agent_count} agents)[/dim]\n"
+        )
 
     except Exception as e:
         console.print(f"[red]Failed to initialize: {str(e)}[/red]")
         console.print("\n[yellow]Please check:[/yellow]")
-        console.print("  1. ANTHROPIC_API_KEY is set in .env file")
+        console.print("  1. CLAUDE_API_KEY is set in .env file")
         console.print("  2. All dependencies are installed (pip install -r requirements.txt)")
         console.print("  3. Configuration is valid")
         sys.exit(1)
