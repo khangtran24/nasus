@@ -11,6 +11,10 @@ from core.model_router import ModelRouter
 from config import settings
 from core.types import AgentResponse, ContextSummary, ConversationTurn
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class ContextManager:
     """Manages conversation context with intelligent summarization."""
@@ -126,6 +130,13 @@ class ContextManager:
         context.total_tokens_used += tokens_used
         context.updated_at = datetime.now().isoformat()
 
+        logger.info(
+            f"Updated context: session_id={session_id}, "
+            f"recent_turns={len(context.recent_turns)}, "
+            f"active_files={len(context.active_files)}, "
+            f"total_tokens={context.total_tokens_used}"
+        )
+
         # Save to disk
         self._save_to_disk(context)
 
@@ -202,7 +213,7 @@ Provide a comprehensive summary that incorporates both the previous summary and 
 
         except Exception as e:
             # Log error but don't fail - continue with unsummarized context
-            print(f"Warning: Failed to summarize context: {e}")
+            logger.error(f"Failed to summarize context: {e}", exc_info=True)
 
     def _estimate_context_tokens(self, context: ContextSummary) -> int:
         """Estimate token count for context.
@@ -285,8 +296,14 @@ Provide a comprehensive summary that incorporates both the previous summary and 
                 }
                 json.dump(context_dict, f, indent=2)
 
+            logger.info(
+                f"Saved context to disk: session_id={context.session_id}, "
+                f"path={file_path}, turns={len(context.recent_turns)}, "
+                f"total_tokens={context.total_tokens_used}"
+            )
+
         except Exception as e:
-            print(f"Warning: Failed to save context to disk: {e}")
+            logger.error(f"Failed to save context to disk: {e}", exc_info=True)
 
     def _load_from_disk(self, session_id: str) -> Optional[ContextSummary]:
         """Load context from disk.
@@ -326,10 +343,15 @@ Provide a comprehensive summary that incorporates both the previous summary and 
                 updated_at=data.get("updated_at", datetime.now().isoformat())
             )
 
+            logger.info(
+                f"Loaded context from disk: session_id={session_id}, "
+                f"turns={len(context.recent_turns)}, total_tokens={context.total_tokens_used}"
+            )
+
             return context
 
         except Exception as e:
-            print(f"Warning: Failed to load context from disk: {e}")
+            logger.error(f"Failed to load context from disk: {e}", exc_info=True)
             return None
 
     def clear_session(self, session_id: str) -> None:
@@ -347,5 +369,6 @@ Provide a comprehensive summary that incorporates both the previous summary and 
             file_path = Path(settings.session_storage_path) / f"{session_id}.json"
             if file_path.exists():
                 file_path.unlink()
+                logger.info(f"Deleted session file: session_id={session_id}, path={file_path}")
         except Exception as e:
-            print(f"Warning: Failed to delete session file: {e}")
+            logger.error(f"Failed to delete session file: {e}", exc_info=True)

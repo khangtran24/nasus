@@ -238,7 +238,15 @@ class MemoryDatabase:
         ))
 
         self.conn.commit()
-        return cursor.lastrowid
+        row_id = cursor.lastrowid
+
+        logger.info(
+            f"Inserted observation into database: session_id={session_id}, "
+            f"type={obs_type}, tool={tool_name or 'N/A'}, row_id={row_id}, "
+            f"content_length={len(content)}, has_summary={summary is not None}"
+        )
+
+        return row_id
 
     def add_memory(
         self,
@@ -271,7 +279,14 @@ class MemoryDatabase:
         ))
 
         self.conn.commit()
-        return cursor.lastrowid
+        row_id = cursor.lastrowid
+
+        logger.info(
+            f"Inserted memory into database: type={mem_type}, row_id={row_id}, "
+            f"content_length={len(content)}, has_metadata={metadata is not None}"
+        )
+
+        return row_id
 
     def search_observations(
         self,
