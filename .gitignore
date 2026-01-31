@@ -1,0 +1,23 @@
+# Environment variables
+.env
+.env.local
+
+# API keys and secrets
+*.key
+*.pem
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

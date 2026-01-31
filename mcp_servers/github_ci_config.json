@@ -1,0 +1,765 @@
+{
+  "name": "github_ci",
+  "description": "GitHub CI/CD and deployment integration via MCP",
+  "env": {
+    "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+    "GITHUB_OWNER": "${GITHUB_OWNER}",
+    "GITHUB_REPO": "${GITHUB_REPO}"
+  },
+  "capabilities": [
+    "list_workflows",
+    "get_workflow",
+    "trigger_workflow",
+    "get_workflow_run",
+    "list_workflow_runs",
+    "cancel_workflow_run",
+    "get_workflow_logs",
+    "create_workflow_file",
+    "update_workflow_file",
+    "list_releases",
+    "create_release",
+    "get_release",
+    "update_release",
+    "create_tag",
+    "list_tags",
+    "get_commit_status",
+    "create_deployment",
+    "list_deployments",
+    "get_deployment_status",
+    "list_environments",
+    "get_environment",
+    "list_actions_secrets",
+    "create_actions_secret",
+    "update_actions_secret",
+    "get_repository_info",
+    "list_branches",
+    "get_branch_protection"
+  ],
+  "tool_definitions": [
+    {
+      "name": "list_workflows",
+      "description": "List all GitHub Actions workflows in the repository",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner (defaults to GITHUB_OWNER env var)"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name (defaults to GITHUB_REPO env var)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_workflow",
+      "description": "Get details of a specific workflow",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "description": "Workflow ID or filename (e.g., 'ci.yml')"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["workflow_id"]
+      }
+    },
+    {
+      "name": "trigger_workflow",
+      "description": "Trigger a GitHub Actions workflow run",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "description": "Workflow ID or filename"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Git ref (branch, tag, or commit SHA)",
+            "default": "main"
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Input parameters for the workflow",
+            "additionalProperties": true
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["workflow_id", "ref"]
+      }
+    },
+    {
+      "name": "get_workflow_run",
+      "description": "Get details of a specific workflow run",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run ID"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["run_id"]
+      }
+    },
+    {
+      "name": "list_workflow_runs",
+      "description": "List workflow runs for a workflow or repository",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "description": "Optional workflow ID to filter by"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "action_required", "cancelled", "failure", "neutral", "skipped", "stale", "success", "timed_out", "in_progress", "queued", "requested", "waiting"],
+            "description": "Filter by run status"
+          },
+          "branch": {
+            "type": "string",
+            "description": "Filter by branch name"
+          },
+          "event": {
+            "type": "string",
+            "description": "Filter by event type (push, pull_request, etc.)"
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "cancel_workflow_run",
+      "description": "Cancel a running workflow",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run ID to cancel"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["run_id"]
+      }
+    },
+    {
+      "name": "get_workflow_logs",
+      "description": "Download workflow run logs",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "integer",
+            "description": "Workflow run ID"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["run_id"]
+      }
+    },
+    {
+      "name": "create_workflow_file",
+      "description": "Create a new GitHub Actions workflow file",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Workflow filename (e.g., 'ci.yml')"
+          },
+          "content": {
+            "type": "string",
+            "description": "YAML content of the workflow"
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch to create the file on",
+            "default": "main"
+          },
+          "commit_message": {
+            "type": "string",
+            "description": "Commit message"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["filename", "content", "commit_message"]
+      }
+    },
+    {
+      "name": "update_workflow_file",
+      "description": "Update an existing GitHub Actions workflow file",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Workflow filename to update"
+          },
+          "content": {
+            "type": "string",
+            "description": "New YAML content"
+          },
+          "branch": {
+            "type": "string",
+            "description": "Branch to update the file on",
+            "default": "main"
+          },
+          "commit_message": {
+            "type": "string",
+            "description": "Commit message"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["filename", "content", "commit_message"]
+      }
+    },
+    {
+      "name": "list_releases",
+      "description": "List GitHub releases",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_release",
+      "description": "Create a new GitHub release",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "tag_name": {
+            "type": "string",
+            "description": "Git tag for the release (e.g., 'v1.0.0')"
+          },
+          "name": {
+            "type": "string",
+            "description": "Release name"
+          },
+          "body": {
+            "type": "string",
+            "description": "Release notes (markdown supported)"
+          },
+          "target_commitish": {
+            "type": "string",
+            "description": "Commit SHA, branch, or tag to create the release from",
+            "default": "main"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Create as draft",
+            "default": false
+          },
+          "prerelease": {
+            "type": "boolean",
+            "description": "Mark as pre-release",
+            "default": false
+          },
+          "generate_release_notes": {
+            "type": "boolean",
+            "description": "Auto-generate release notes from commits",
+            "default": false
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["tag_name"]
+      }
+    },
+    {
+      "name": "get_release",
+      "description": "Get details of a specific release",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "release_id": {
+            "type": "integer",
+            "description": "Release ID, or use 'latest' for the latest release"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["release_id"]
+      }
+    },
+    {
+      "name": "update_release",
+      "description": "Update an existing release",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "release_id": {
+            "type": "integer",
+            "description": "Release ID"
+          },
+          "tag_name": {
+            "type": "string",
+            "description": "Updated tag name"
+          },
+          "name": {
+            "type": "string",
+            "description": "Updated release name"
+          },
+          "body": {
+            "type": "string",
+            "description": "Updated release notes"
+          },
+          "draft": {
+            "type": "boolean",
+            "description": "Draft status"
+          },
+          "prerelease": {
+            "type": "boolean",
+            "description": "Pre-release status"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["release_id"]
+      }
+    },
+    {
+      "name": "create_tag",
+      "description": "Create a new Git tag",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Tag name (e.g., 'v1.0.0')"
+          },
+          "message": {
+            "type": "string",
+            "description": "Tag message"
+          },
+          "object": {
+            "type": "string",
+            "description": "Git object (commit SHA) to tag"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["commit", "tree", "blob"],
+            "description": "Type of Git object",
+            "default": "commit"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["tag", "message", "object"]
+      }
+    },
+    {
+      "name": "list_tags",
+      "description": "List repository tags",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_commit_status",
+      "description": "Get combined status for a commit",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Commit SHA, branch, or tag"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["ref"]
+      }
+    },
+    {
+      "name": "create_deployment",
+      "description": "Create a deployment",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Git ref to deploy (branch, tag, or SHA)"
+          },
+          "environment": {
+            "type": "string",
+            "description": "Deployment environment (e.g., 'production', 'staging')",
+            "default": "production"
+          },
+          "description": {
+            "type": "string",
+            "description": "Deployment description"
+          },
+          "auto_merge": {
+            "type": "boolean",
+            "description": "Auto-merge default branch into deployment branch",
+            "default": true
+          },
+          "required_contexts": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Required status checks"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Deployment metadata",
+            "additionalProperties": true
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["ref"]
+      }
+    },
+    {
+      "name": "list_deployments",
+      "description": "List deployments",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "environment": {
+            "type": "string",
+            "description": "Filter by environment"
+          },
+          "ref": {
+            "type": "string",
+            "description": "Filter by ref"
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_deployment_status",
+      "description": "Get deployment status",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "deployment_id": {
+            "type": "integer",
+            "description": "Deployment ID"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["deployment_id"]
+      }
+    },
+    {
+      "name": "list_environments",
+      "description": "List repository environments",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_environment",
+      "description": "Get environment details",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "environment_name": {
+            "type": "string",
+            "description": "Environment name (e.g., 'production')"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["environment_name"]
+      }
+    },
+    {
+      "name": "list_actions_secrets",
+      "description": "List repository secrets for GitHub Actions",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "create_actions_secret",
+      "description": "Create or update a repository secret",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "secret_name": {
+            "type": "string",
+            "description": "Secret name (uppercase with underscores)"
+          },
+          "encrypted_value": {
+            "type": "string",
+            "description": "Encrypted secret value"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["secret_name", "encrypted_value"]
+      }
+    },
+    {
+      "name": "get_repository_info",
+      "description": "Get repository information",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_branches",
+      "description": "List repository branches",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "protected": {
+            "type": "boolean",
+            "description": "Filter by protected status"
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Results per page",
+            "default": 30,
+            "maximum": 100
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_branch_protection",
+      "description": "Get branch protection rules",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "Branch name"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Repository owner"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Repository name"
+          }
+        },
+        "required": ["branch"]
+      }
+    }
+  ],
+  "notes": "Requires GitHub token with appropriate permissions (repo, workflow, packages for full functionality). Consider using github-mcp-server package or implementing custom MCP server."
+}

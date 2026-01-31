@@ -1,0 +1,22 @@
+{
+  "name": "atlassian",
+  "description": "Jira and Confluence integration via MCP",
+  "env": {
+    "JIRA_URL": "${JIRA_URL}",
+    "JIRA_EMAIL": "${JIRA_EMAIL}",
+    "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
+    "CONFLUENCE_URL": "${CONFLUENCE_URL}",
+    "CONFLUENCE_EMAIL": "${CONFLUENCE_EMAIL}",
+    "CONFLUENCE_API_TOKEN": "${CONFLUENCE_API_TOKEN}"
+  },
+  "capabilities": [
+    "read_jira_tickets",
+    "search_jira",
+    "create_jira_comment",
+    "update_jira_status",
+    "read_confluence_pages",
+    "search_confluence",
+    "create_confluence_page"
+  ],
+  "notes": "Requires mcp-atlassian package to be installed"
+}

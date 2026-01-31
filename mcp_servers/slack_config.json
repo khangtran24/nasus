@@ -1,0 +1,18 @@
+{
+  "name": "slack",
+  "description": "Slack workspace integration via MCP",
+  "env": {
+    "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+    "SLACK_APP_TOKEN": "${SLACK_APP_TOKEN}"
+  },
+  "capabilities": [
+    "read_messages",
+    "search_messages",
+    "get_channel_history",
+    "list_channels",
+    "get_thread_replies",
+    "post_message",
+    "summarize_conversations"
+  ],
+  "notes": "Requires slack-mcp-server package to be installed. Bot must be invited to channels."
+}
